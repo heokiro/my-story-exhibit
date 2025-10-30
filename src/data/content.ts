@@ -17,7 +17,7 @@ export const poetryImages = [
 export const poetryTexts = [
   { 
     id: 'pt1', 
-    title: '선 위를 걷는 법', 
+    title: '선위를걷는법', 
     content: `처음의 나는
 누군가가 그어준 선 위에 있었다.
 멈추지 말라고,

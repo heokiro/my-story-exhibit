@@ -11,6 +11,7 @@ const Section = styled.section`
 `
 
 // 페이지 제목 - 그라데이션 텍스트 효과
+// 아무말이나 적을 수 있어서 안내나, 주의사항등을 적습니다.
 const PageTitle = styled.h2`
   font-size: 2.5rem;
   text-align: center;
@@ -147,7 +148,7 @@ export default function PoetryPage() {
       <ContentGrid>
         {/* 이미지 섹션 */}
         <SectionContainer>
-          <SectionTitle>이미지</SectionTitle>
+          <SectionTitle>사진</SectionTitle>
           <Grid>
             {/* 이미지 목록 렌더링 - map으로 반복 */}
             {poetryImages.map((img) => (
