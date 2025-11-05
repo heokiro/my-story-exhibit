@@ -18,7 +18,7 @@ const PageTitle = styled.h2`
   text-align: center;
   margin-bottom: 3rem;
   // 그라데이션 텍스트 효과
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -61,7 +61,7 @@ const SectionTitle = styled.h3`
     transform: translateX(-50%);  // 중앙 정렬
     width: 50px;
     height: 3px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
     border-radius: 2px;
   }
 `
@@ -90,7 +90,7 @@ const Card = styled.div`
   &:hover {
     transform: translateY(-5px);  // 위로 5px 이동
     box-shadow: 0 15px 35px rgba(0,0,0,0.1);  // 그림자 강화
-    border-color: #667eea;  // 테두리 색상 변경
+    border-color: #ff6b9d;  // 테두리 색상 변경
   }
 `
 
@@ -124,11 +124,11 @@ const AudioCard = styled(Card)`
 // ===== CUSTOM AUDIO PLAYER STYLED COMPONENTS =====
 // 커스텀 오디오 플레이어 컨테이너 - 그라데이션 배경
 const CustomAudioPlayer = styled.div`
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-  border: 2px solid #667eea;
+  box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
+  border: 2px solid #ff6b9d;
 `
 
 // 오디오 컨트롤 영역 - 플레이 버튼과 정보를 가로로 배치
@@ -146,7 +146,7 @@ const PlayButton = styled.button`
   border-radius: 50%;  // 원형 버튼
   border: none;
   background: white;
-  color: #667eea;
+  color: #ff6b9d;
   font-size: 1.2rem;
   cursor: pointer;
   display: flex;
@@ -325,7 +325,7 @@ export default function SongPage() {
       <ContentGrid>
         {/* 가사 섹션 */}
         <SectionContainer>
-          <SectionTitle>글</SectionTitle>
+          <SectionTitle>가사</SectionTitle>
           <Grid>
             {/* 가사 목록 렌더링 - map으로 반복 */}
             {songTexts.map((text) => (

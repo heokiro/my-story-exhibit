@@ -20,7 +20,7 @@ const Container = styled.div`
 
 // 헤더 영역 - 그라데이션 배경과 그림자 효과
 const Header = styled.header`
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); // 대각선 그라데이션
+  background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%); // 대각선 그라데이션
   color: white;
   padding: 1rem 0;
   margin-bottom: 2rem;
@@ -123,7 +123,7 @@ const HomeTitle = styled.h1`
   color: #2c3e50;
   margin-bottom: 1rem;
   // 그라데이션 텍스트 효과 (웹킷 브라우저)
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
