@@ -10,18 +10,6 @@ const Section = styled.section`
   padding: 2rem 0;  // 상하 패딩
 `
 
-// 페이지 제목 - 그라데이션 텍스트 효과
-const PageTitle = styled.h2`
-  font-size: 2.5rem;
-  text-align: center;
-  margin-bottom: 3rem;
-  // 그라데이션 텍스트 효과
-  background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-`
-
 // 콘텐츠 그리드 - 섹션들 간의 간격
 const ContentGrid = styled.div`
   display: grid;
