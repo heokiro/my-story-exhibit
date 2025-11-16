@@ -2,7 +2,7 @@
 // Styled Components - CSS-in-JS 스타일링
 import styled from 'styled-components'
 // React Hooks - 상태 관리와 DOM 참조
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 // 데이터 import - 이미지와 오디오 데이터
 import { dotlineImages, dotlineAudio } from '../data/content'
 
@@ -222,6 +222,48 @@ function AudioPlayerComponent({ audio }: { audio: AudioItem }) {
   const [duration, setDuration] = useState(0)         // 전체 재생 시간
   const audioRef = useRef<HTMLAudioElement>(null)    // 오디오 DOM 참조
 
+  // ===== FIREBASE REALTIME DATABASE 연동 =====
+  // CCTV-Data/Data/Data-04 값(true/false)에 따라 재생/일시정지 제어
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchPlaybackState = async () => {
+      try {
+        const response = await fetch(
+          'https://yencctv-10945-default-rtdb.asia-southeast1.firebasedatabase.app/CCTV-Data/Data/Data-04.json'
+        )
+        const value = await response.json()
+
+        if (!isMounted || !audioRef.current) return
+
+        if (value === true) {
+          // true인 경우 재생
+          if (audioRef.current.paused) {
+            await audioRef.current.play()
+            setIsPlaying(true)
+          }
+        } else {
+          // false 또는 그 외 값이면 일시정지
+          if (!audioRef.current.paused) {
+            audioRef.current.pause()
+            setIsPlaying(false)
+          }
+        }
+      } catch (error) {
+        console.error('재생 상태를 가져오는 중 오류 발생:', error)
+      }
+    }
+
+    // 초기 한 번 실행 후, 주기적으로 상태 확인
+    fetchPlaybackState()
+    const intervalId = setInterval(fetchPlaybackState, 3000) // 3초마다 상태 확인
+
+    return () => {
+      isMounted = false
+      clearInterval(intervalId)
+    }
+  }, [])
+
   // ===== EVENT HANDLERS =====
   // 플레이/정지 토글 함수
   const togglePlay = () => {
@@ -284,7 +326,7 @@ function AudioPlayerComponent({ audio }: { audio: AudioItem }) {
         src={audio.src}
         onTimeUpdate={handleTimeUpdate}        // 시간 업데이트 이벤트
         onLoadedMetadata={handleLoadedMetadata} // 메타데이터 로드 이벤트
-        onEnded={() => setIsPlaying(false)}     // 재생 완료 이벤트
+        loop                                   // 한번 재생되면 무한 반복
       />
       
       {/* 컨트롤 영역 */}
