@@ -1,252 +1,235 @@
 // ===== IMPORTS =====
-// Styled Components - CSS-in-JS 스타일링
-import styled from 'styled-components'
-// React Hooks - 상태 관리와 DOM 참조
 import { useState, useRef, useEffect } from 'react'
-// 데이터 import - 이미지와 오디오 데이터
-import { dotlineImages, dotlineAudio } from '../data/content'
+import { dotlineAudio } from '../data/content'
+import styled from 'styled-components'
 
 // ===== STYLED COMPONENTS =====
-// 페이지 전체 섹션
-const Section = styled.section`
-  padding: 2rem 0;  // 상하 패딩
-`
-
-// 페이지 제목 - 그라데이션 텍스트 효과
-const PageTitle = styled.h2`
-  font-size: 2.5rem;
-  text-align: center;
-  margin-bottom: 3rem;
-  // 그라데이션 텍스트 효과
-  background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-`
-
-// 콘텐츠 그리드 - 섹션들 간의 간격
-const ContentGrid = styled.div`
-  display: grid;
-  gap: 3rem;  // 섹션 간 간격
-  
-  // 모바일 반응형 - 간격 조정
-  @media (max-width: 768px) {
-    gap: 2rem;
-  }
-`
-
-// 섹션 컨테이너 - 카드 스타일
-const SectionContainer = styled.div`
-  background: white;
-  padding: 2rem;
-  border-radius: 15px;  // 둥근 모서리
-  box-shadow: 0 8px 25px rgba(0,0,0,0.1);  // 그림자 효과
-  border: 1px solid #f0f0f0;  // 연한 테두리
-`
-
-// 섹션 제목 - 하단에 장식선 추가
-const SectionTitle = styled.h3`
-  font-size: 1.5rem;
-  color: #2c3e50;
-  margin-bottom: 1.5rem;
-  text-align: center;
-  position: relative;
-  
-  // 하단 장식선 (::after 가상 요소)
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -8px;
-    left: 50%;
-    transform: translateX(-50%);  // 중앙 정렬
-    width: 50px;
-    height: 3px;
-    background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
-    border-radius: 2px;
-  }
-`
-
-// 그리드 레이아웃 - 반응형 카드 배치
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));  // 최소 300px, 자동 맞춤
-  gap: 1.5rem;
-  
-  // 모바일 반응형 - 세로 배치
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-  }
-`
-
-// 기본 카드 스타일 - 호버 효과 포함
-const Card = styled.div`
-  background: #f8f9fa;
-  border-radius: 12px;
-  padding: 1.5rem;
-  transition: all 0.3s ease;  // 부드러운 애니메이션
-  border: 1px solid #e9ecef;
-  
-  // 호버 효과 - 위로 이동, 그림자, 테두리 색상 변경
-  &:hover {
-    transform: translateY(-5px);  // 위로 5px 이동
-    box-shadow: 0 15px 35px rgba(0,0,0,0.1);  // 그림자 강화
-    border-color: #ff6b9d;  // 테두리 색상 변경
-  }
-`
-
-// 이미지 카드 - 중앙 정렬
-const ImageCard = styled(Card)`
-  text-align: center;
-`
-
-// 이미지 스타일 - 호버 시 확대 효과
-const Image = styled.img`
-  width: 100%;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-  transition: transform 0.3s ease;
-  
-  &:hover {
-    transform: scale(1.02);  // 2% 확대
-  }
-`
-
-// 오디오 카드 - 중앙 정렬
-const AudioCard = styled(Card)`
-  text-align: center;
-`
-
-// ===== CUSTOM AUDIO PLAYER STYLED COMPONENTS =====
-// 커스텀 오디오 플레이어 컨테이너 - 그라데이션 배경
-const CustomAudioPlayer = styled.div`
-  background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
-  border: 2px solid #ff6b9d;
-`
-
-// 오디오 컨트롤 영역 - 플레이 버튼과 정보를 가로로 배치
-const AudioControls = styled.div`
+// 전체 컨테이너 - 화면 전체를 차지하고 중앙 정렬
+const Container = styled.div`
   display: flex;
-  align-items: center;  // 세로 중앙 정렬
-  gap: 1rem;           // 요소 간 간격
-  margin-bottom: 1rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 `
 
-// 플레이/정지 버튼 - 원형 버튼에 호버 효과
-const PlayButton = styled.button`
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;  // 원형 버튼
+// 재생/일시정지 버튼 - 큰 원형 버튼
+const PlayPauseButton = styled.button`
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
   border: none;
   background: white;
-  color: #ff6b9d;
-  font-size: 1.2rem;
+  color: #667eea;
+  font-size: 3rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
   transition: all 0.3s ease;
   
-  // 호버 효과 - 확대와 그림자 강화
   &:hover {
-    transform: scale(1.1);  // 10% 확대
-    box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+    transform: scale(1.1);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
   }
   
-  // 클릭 효과 - 축소
   &:active {
-    transform: scale(0.95);  // 5% 축소
+    transform: scale(0.95);
+  }
+  
+  @media (max-width: 768px) {
+    width: 100px;
+    height: 100px;
+    font-size: 2.5rem;
   }
 `
 
-// 오디오 정보 영역 - 제목과 시간 표시
-const AudioInfo = styled.div`
-  flex: 1;  // 남은 공간 모두 차지
-  color: white;
-`
-
-// 오디오 제목
-const AudioTitle = styled.div`
-  font-weight: 600;
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
-`
-
-// 시간 표시 (현재 시간 / 전체 시간)
-const TimeDisplay = styled.div`
-  font-size: 0.9rem;
-  opacity: 0.9;  // 약간 투명하게
-`
-
-// 진행률 바 컨테이너 - 클릭 가능
-const ProgressBar = styled.div`
-  width: 100%;
-  height: 6px;
-  background: rgba(255,255,255,0.3);  // 반투명 흰색
-  border-radius: 3px;
-  overflow: hidden;
-  cursor: pointer;  // 클릭 가능 표시
-`
-
-// 진행률 표시 바 - props로 진행률 받음
-const Progress = styled.div<{ progress: number }>`
-  height: 100%;
-  background: white;
-  border-radius: 3px;
-  transition: width 0.1s ease;  // 부드러운 애니메이션
-  width: ${props => props.progress}%;  // props로 받은 진행률만큼 너비 설정
-`
-
-// 숨겨진 오디오 요소 - 실제 재생 담당
+// 숨겨진 오디오 요소
 const HiddenAudio = styled.audio`
-  display: none;  // 화면에 보이지 않음
+  display: none;
 `
 
-// ===== TYPES =====
-// 오디오 아이템 타입 정의
-interface AudioItem {
-  id: string;
-  title: string;
-  src: string;
-}
+// ===== MAIN COMPONENT =====
+export default function DotlinePage() {
+  const [isPlaying, setIsPlaying] = useState(false)
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const volumeIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const oneMinuteTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const isInOneMinuteCycleRef = useRef(false)
 
-// ===== CUSTOM AUDIO PLAYER COMPONENT =====
-// 커스텀 오디오 플레이어 컴포넌트 - 재생/정지, 진행률, 시간 표시 기능
-function AudioPlayerComponent({ audio }: { audio: AudioItem }) {
-  // ===== STATE HOOKS =====
-  const [isPlaying, setIsPlaying] = useState(false)  // 재생 상태
-  const [currentTime, setCurrentTime] = useState(0)   // 현재 재생 시간
-  const [duration, setDuration] = useState(0)         // 전체 재생 시간
-  const audioRef = useRef<HTMLAudioElement>(null)    // 오디오 DOM 참조
+  // ===== 수동 재생/일시정지 토글 =====
+  const togglePlay = async () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause()
+        setIsPlaying(false)
+        // 수동 일시정지 시 모든 타이머 정리
+        if (volumeIntervalRef.current) {
+          clearInterval(volumeIntervalRef.current)
+          volumeIntervalRef.current = null
+        }
+        if (oneMinuteTimerRef.current) {
+          clearTimeout(oneMinuteTimerRef.current)
+          oneMinuteTimerRef.current = null
+        }
+        isInOneMinuteCycleRef.current = false
+        audioRef.current.volume = 1
+        console.log('🎵 [수동] 음악 일시정지')
+      } else {
+        try {
+          await audioRef.current.play()
+          setIsPlaying(true)
+          console.log('🎵 [수동] 음악 재생 시작')
+        } catch (error) {
+          console.error('재생 실패:', error)
+        }
+      }
+    }
+  }
+
+  // ===== 볼륨 페이드 인/아웃 함수 =====
+  // 10초 동안 볼륨을 0에서 1로 또는 1에서 0으로 변경
+  const fadeVolume = (targetVolume: number, duration: number) => {
+    if (!audioRef.current) return
+
+    const startVolume = audioRef.current.volume
+    const startTime = Date.now()
+    const volumeChange = targetVolume - startVolume
+
+    if (volumeIntervalRef.current) {
+      clearInterval(volumeIntervalRef.current)
+    }
+
+    volumeIntervalRef.current = setInterval(() => {
+      if (!audioRef.current) return
+
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const currentVolume = startVolume + volumeChange * progress
+
+      audioRef.current.volume = currentVolume
+
+      if (progress >= 1) {
+        if (volumeIntervalRef.current) {
+          clearInterval(volumeIntervalRef.current)
+          volumeIntervalRef.current = null
+        }
+      }
+    }, 50) // 50ms마다 볼륨 업데이트
+  }
+
+  // ===== 1분 사이클 시작 함수 =====
+  // 10초 페이드 인 → 10초 페이드 아웃을 3번 반복 (총 60초)
+  const startOneMinuteCycle = async () => {
+    if (!audioRef.current || isInOneMinuteCycleRef.current) return
+
+    isInOneMinuteCycleRef.current = true
+    console.log('🎵 [1분 사이클] 시작 - 페이드 인/아웃 3번 반복')
+
+    try {
+      // 재생 시작
+      if (audioRef.current.paused) {
+        await audioRef.current.play()
+        setIsPlaying(true)
+      }
+
+      // 볼륨 초기화
+      audioRef.current.volume = 0
+
+      // 3번 반복: 페이드 인(10초) → 페이드 아웃(10초)
+      for (let i = 0; i < 3; i++) {
+        console.log(`🎵 [1분 사이클] ${i + 1}번째 반복 시작`)
+        
+        // 페이드 인 (0 → 1, 10초)
+        fadeVolume(1, 10000)
+        await new Promise(resolve => setTimeout(resolve, 10000))
+
+        // 페이드 아웃 (1 → 0, 10초)
+        fadeVolume(0, 10000)
+        await new Promise(resolve => setTimeout(resolve, 10000))
+      }
+
+      console.log('🎵 [1분 사이클] 완료 - DB 재확인')
+
+      // 1분 후 DB 재확인
+      oneMinuteTimerRef.current = setTimeout(async () => {
+        isInOneMinuteCycleRef.current = false
+        if (volumeIntervalRef.current) {
+          clearInterval(volumeIntervalRef.current)
+          volumeIntervalRef.current = null
+        }
+
+        // DB 재확인
+        try {
+          const response = await fetch(
+            'https://yencctv-10945-default-rtdb.asia-southeast1.firebasedatabase.app/vibe_speaker.json'
+          )
+          const value = await response.json()
+
+          if (value === true) {
+            console.log('🎵 [DB 재확인] vibe_speaker=true → 1분 사이클 다시 시작')
+            startOneMinuteCycle()
+          } else {
+            console.log('🎵 [DB 재확인] vibe_speaker=false → 음악 중지')
+    if (audioRef.current) {
+              audioRef.current.pause()
+              setIsPlaying(false)
+              audioRef.current.volume = 1
+            }
+          }
+        } catch (error) {
+          console.error('DB 재확인 중 오류:', error)
+        }
+      }, 0) // 즉시 실행 (이미 60초가 지났으므로)
+    } catch (error) {
+      console.error('1분 사이클 시작 실패:', error)
+      isInOneMinuteCycleRef.current = false
+    }
+  }
 
   // ===== FIREBASE REALTIME DATABASE 연동 =====
-  // CCTV-Data/Data/Data-04 값(true/false)에 따라 재생/일시정지 제어
+  // vibe_speaker 값(true/false)에 따라 자동 재생/일시정지 제어
   useEffect(() => {
     let isMounted = true
 
     const fetchPlaybackState = async () => {
       try {
         const response = await fetch(
-          'https://yencctv-10945-default-rtdb.asia-southeast1.firebasedatabase.app/CCTV-Data/Data/Data-04.json'
+          'https://yencctv-10945-default-rtdb.asia-southeast1.firebasedatabase.app/vibe_speaker.json'
         )
         const value = await response.json()
 
         if (!isMounted || !audioRef.current) return
 
         if (value === true) {
-          // true인 경우 재생
-          if (audioRef.current.paused) {
-            await audioRef.current.play()
-            setIsPlaying(true)
+          // true인 경우 - 1분 사이클이 진행 중이 아니면 시작
+          if (!isInOneMinuteCycleRef.current) {
+            startOneMinuteCycle()
           }
         } else {
-          // false 또는 그 외 값이면 일시정지
-          if (!audioRef.current.paused) {
-            audioRef.current.pause()
-            setIsPlaying(false)
+          // false인 경우 - 1분 사이클이 진행 중이 아니면 중지
+          // 1분 사이클이 진행 중이면 무시하고 오디오가 pause되어 있으면 재생
+          if (!isInOneMinuteCycleRef.current) {
+            if (!audioRef.current.paused) {
+              audioRef.current.pause()
+              setIsPlaying(false)
+              audioRef.current.volume = 1
+              console.log('🎵 [Firebase DB] vibe_speaker=false → 음악 일시정지')
+            }
+          } else {
+            console.log('🎵 [Firebase DB] vibe_speaker=false 감지했지만 1분 사이클 진행 중이므로 무시')
+            // 1분 사이클 진행 중인데 오디오가 pause되어 있으면 재생
+            if (audioRef.current.paused) {
+              try {
+                await audioRef.current.play()
+                console.log('🎵 [1분 사이클 보호] pause된 오디오를 재생으로 복구')
+              } catch (error) {
+                console.error('재생 복구 실패:', error)
+              }
+            }
           }
         }
       } catch (error) {
@@ -261,133 +244,92 @@ function AudioPlayerComponent({ audio }: { audio: AudioItem }) {
     return () => {
       isMounted = false
       clearInterval(intervalId)
+      if (volumeIntervalRef.current) {
+        clearInterval(volumeIntervalRef.current)
+      }
+      if (oneMinuteTimerRef.current) {
+        clearTimeout(oneMinuteTimerRef.current)
+      }
     }
   }, [])
 
-  // ===== EVENT HANDLERS =====
-  // 플레이/정지 토글 함수
-  const togglePlay = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause()  // 정지
-      } else {
-        audioRef.current.play()  // 재생
+  // 1분 사이클 진행 중 오디오 보호 - pause되면 자동으로 재생
+  useEffect(() => {
+    const protectAudio = setInterval(() => {
+      if (isInOneMinuteCycleRef.current && audioRef.current) {
+        if (audioRef.current.paused) {
+          audioRef.current.play().catch((error) => {
+            console.error('보호 재생 실패:', error)
+          })
+        }
       }
-      setIsPlaying(!isPlaying)  // 상태 반전
+    }, 1000) // 1초마다 확인
+
+    return () => {
+      clearInterval(protectAudio)
     }
-  }
+  }, [])
 
-  // 시간 업데이트 핸들러 - 재생 중 계속 호출됨
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime)
+  // 오디오 재생 상태 동기화 - 실제 오디오 상태와 UI 상태를 일치시킴
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    // 초기 상태 동기화
+    setIsPlaying(!audio.paused)
+
+    const handlePlay = () => {
+      setIsPlaying(true)
+      console.log('🎵 [오디오 이벤트] 재생 중')
     }
-  }
 
-  // 메타데이터 로드 핸들러 - 오디오 파일 정보가 로드되면 호출
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration)
+    const handlePause = async () => {
+      // 1분 사이클 진행 중이면 일시정지 무시하고 다시 재생
+      if (isInOneMinuteCycleRef.current) {
+        console.log('🎵 [오디오 이벤트] 일시정지 감지했지만 1분 사이클 진행 중이므로 재생 유지')
+        if (audio && audio.paused) {
+          try {
+            await audio.play()
+          } catch (error) {
+            console.error('재생 재개 실패:', error)
+          }
+        }
+        return
+      }
+      
+      setIsPlaying(false)
+      console.log('🎵 [오디오 이벤트] 일시정지됨')
     }
-  }
 
-  // 진행률 바 클릭 핸들러 - 클릭한 위치로 재생 시간 이동
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (audioRef.current && duration) {
-      const rect = e.currentTarget.getBoundingClientRect()  // 클릭한 요소의 위치 정보
-      const clickX = e.clientX - rect.left                  // 클릭한 X 좌표 (요소 기준)
-      const width = rect.width                              // 진행률 바 전체 너비
-      const newTime = (clickX / width) * duration           // 클릭 비율에 따른 새로운 시간
-      audioRef.current.currentTime = newTime                // 오디오 시간 설정
-      setCurrentTime(newTime)                              // 상태 업데이트
+    const handleEnded = () => {
+      setIsPlaying(false)
+      console.log('🎵 [오디오 이벤트] 재생 완료')
     }
-  }
 
-  // ===== UTILITY FUNCTIONS =====
-  // 시간 포맷팅 함수 (초를 mm:ss 형식으로 변환)
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60)  // 분 계산
-    const seconds = Math.floor(time % 60)  // 초 계산
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`  // 두 자리 초 형식
-  }
+    audio.addEventListener('play', handlePlay)
+    audio.addEventListener('pause', handlePause)
+    audio.addEventListener('ended', handleEnded)
 
-  // 진행률 계산 (0-100%)
-  const progress = duration ? (currentTime / duration) * 100 : 0
+    return () => {
+      audio.removeEventListener('play', handlePlay)
+      audio.removeEventListener('pause', handlePause)
+      audio.removeEventListener('ended', handleEnded)
+    }
+  }, [])
 
-  // 주석은 나와 협업자를 위한 메모입니다.
-  // ===== RENDER ===== 
+  // 첫 번째 오디오만 사용
+  const audio = dotlineAudio[0]
+
   return (
-    <CustomAudioPlayer>
-      {/* 숨겨진 실제 오디오 요소 - 모든 이벤트 처리 */}
-      {/* 아무말이나 써도 코드에 영향을 주지 않습니다. 
-      가끔은 주석을 이용해 편지를 쓰는 낭만적인 개발자도 있습니다.*/}
+    <Container>
+      <PlayPauseButton onClick={togglePlay}>
+        {isPlaying ? '⏸️' : '▶️'}
+      </PlayPauseButton>
       <HiddenAudio
         ref={audioRef}
         src={audio.src}
-        onTimeUpdate={handleTimeUpdate}        // 시간 업데이트 이벤트
-        onLoadedMetadata={handleLoadedMetadata} // 메타데이터 로드 이벤트
-        loop                                   // 한번 재생되면 무한 반복
+        loop // 무한 반복
       />
-      
-      {/* 컨트롤 영역 */}
-      <AudioControls>
-        {/* 플레이/정지 버튼 - 상태에 따라 아이콘 변경 */}
-        <PlayButton onClick={togglePlay}>
-          {isPlaying ? '⏸️' : '▶️'}
-        </PlayButton>
-        
-        {/* 오디오 정보 */}
-        <AudioInfo>
-          <AudioTitle>{audio.title}</AudioTitle>
-          <TimeDisplay>
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </TimeDisplay>
-        </AudioInfo>
-      </AudioControls>
-      
-      {/* 진행률 바 - 클릭으로 구간 이동 가능 */}
-      <ProgressBar onClick={handleProgressClick}>
-        <Progress progress={progress} />
-      </ProgressBar>
-    </CustomAudioPlayer>
-  )
-}
-
-// ===== MAIN COMPONENT =====
-// 인생그래프 페이지 메인 컴포넌트 - 이미지와 오디오를 표시
-export default function DotlinePage() {
-  return (
-    <Section>
-      {/* 페이지 제목 */}
-      <PageTitle>인생그래프</PageTitle>
-      
-      {/* 콘텐츠 그리드 - 이미지와 오디오 섹션 */}
-      <ContentGrid>
-        {/* 이미지 섹션 */}
-        <SectionContainer>
-          <Grid>
-            {/* 이미지 목록 렌더링 - map으로 반복 */}
-            {dotlineImages.map((img, index) => (
-              <ImageCard key={index}>
-                <Image src={img.src} alt={img.title} />
-              </ImageCard>
-            ))}
-          </Grid>
-        </SectionContainer>
-        
-        {/* 오디오 섹션 */}
-        <SectionContainer>
-          <SectionTitle>인생그래프로 만든 우연성 음악</SectionTitle>
-          <Grid>
-            {/* 오디오 목록 렌더링 - 커스텀 플레이어 사용 */}
-            {dotlineAudio.map((audio) => (
-              <AudioCard key={audio.id}>
-                <AudioPlayerComponent audio={audio} />
-              </AudioCard>
-            ))}
-          </Grid>
-        </SectionContainer>
-      </ContentGrid>
-    </Section>
+    </Container>
   )
 }
