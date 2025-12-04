@@ -349,7 +349,7 @@ export default function DotlinePage() {
 
     // Firebase SDK 로드 대기 (더 긴 대기 시간과 다양한 접근 방법 시도)
     const waitForFirebase = (): Promise<any> => {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         // 여러 방법으로 Firebase 접근 시도
         const getFirebase = () => {
           return (window as any).firebase || 
@@ -629,7 +629,8 @@ export default function DotlinePage() {
       // 즉시 한 번 실행
       checkMotorState()
       // 200ms마다 확인 (거의 실시간)
-      fetchIntervalId = setInterval(checkMotorState, 200)
+      const intervalId = setInterval(checkMotorState, 200)
+      return intervalId
     }
 
     return () => {
