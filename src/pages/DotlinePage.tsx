@@ -52,13 +52,70 @@ const HiddenAudio = styled.audio`
   display: none;
 `
 
+// 오디오 상태 표시 컨테이너
+const AudioStatusContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 30px;
+  align-items: center;
+`
+
+// 오디오 상태 아이템
+const AudioStatusItem = styled.div<{ isPlaying: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  
+  ${props => props.isPlaying && `
+    background: rgba(102, 126, 234, 0.2);
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+  `}
+`
+
+// 재생 인디케이터
+const PlayingIndicator = styled.div<{ isPlaying: boolean }>`
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: ${props => props.isPlaying ? '#4CAF50' : '#ccc'};
+  animation: ${props => props.isPlaying ? 'pulse 1.5s ease-in-out infinite' : 'none'};
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.2);
+    }
+  }
+`
+
+const AudioStatusText = styled.span`
+  font-size: 0.9rem;
+  color: #333;
+  font-weight: 500;
+`
+
 // ===== MAIN COMPONENT =====
 export default function DotlinePage() {
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isFactoryPlaying, setIsFactoryPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const factoryAudioRef = useRef<HTMLAudioElement>(null)
   const volumeIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const factoryVolumeIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const oneMinuteTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isInOneMinuteCycleRef = useRef(false)
+  const factoryPlayTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const isFactoryPlayingRef = useRef(false)
 
   // ===== 수동 재생/일시정지 토글 =====
   const togglePlay = async () => {
@@ -120,6 +177,37 @@ export default function DotlinePage() {
       }
     }, 50) // 50ms마다 볼륨 업데이트
   }
+
+  // ===== Factory 오디오 페이드 인/아웃 함수 =====
+  const fadeFactoryVolume = (targetVolume: number, duration: number) => {
+    if (!factoryAudioRef.current) return
+
+    const startVolume = factoryAudioRef.current.volume
+    const startTime = Date.now()
+    const volumeChange = targetVolume - startVolume
+
+    if (factoryVolumeIntervalRef.current) {
+      clearInterval(factoryVolumeIntervalRef.current)
+    }
+
+    factoryVolumeIntervalRef.current = setInterval(() => {
+      if (!factoryAudioRef.current) return
+
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const currentVolume = startVolume + volumeChange * progress
+
+      factoryAudioRef.current.volume = currentVolume
+
+      if (progress >= 1) {
+        if (factoryVolumeIntervalRef.current) {
+          clearInterval(factoryVolumeIntervalRef.current)
+          factoryVolumeIntervalRef.current = null
+        }
+      }
+    }, 50) // 50ms마다 볼륨 업데이트
+  }
+
 
   // ===== 1분 사이클 시작 함수 =====
   // 10초 페이드 인 → 10초 페이드 아웃을 3번 반복 (총 60초)
@@ -253,6 +341,322 @@ export default function DotlinePage() {
     }
   }, [])
 
+  // ===== FIREBASE REALTIME DATABASE 연동 - Factory 오디오 =====
+  // motor_1 또는 motor_2 값(true)에 따라 factory.mp3 재생 (실시간 리스너 사용)
+  useEffect(() => {
+    let isMounted = true
+    console.log('🏭 [useEffect] Factory 오디오 useEffect 시작')
+
+    // Firebase SDK 로드 대기 (더 긴 대기 시간과 다양한 접근 방법 시도)
+    const waitForFirebase = (): Promise<any> => {
+      return new Promise((resolve, reject) => {
+        // 여러 방법으로 Firebase 접근 시도
+        const getFirebase = () => {
+          return (window as any).firebase || 
+                 (window as any).firebase?.app ||
+                 (globalThis as any).firebase
+        }
+
+        const firebase = getFirebase()
+        if (firebase && firebase.database) {
+          console.log('🏭 [Firebase] Firebase SDK가 이미 로드되어 있습니다')
+          resolve(firebase)
+          return
+        }
+
+        console.log('🏭 [Firebase] Firebase SDK 로드 대기 중...')
+        console.log('🏭 [Firebase] window.firebase:', (window as any).firebase)
+        console.log('🏭 [Firebase] window:', Object.keys(window).filter(k => k.includes('firebase')))
+        
+        let attempts = 0
+        const maxAttempts = 100 // 10초 대기 (더 길게)
+
+        const checkFirebase = setInterval(() => {
+          attempts++
+          const firebase = getFirebase()
+          if (firebase && firebase.database) {
+            console.log('🏭 [Firebase] Firebase SDK 로드 완료! (시도 횟수:', attempts, ')')
+            clearInterval(checkFirebase)
+            resolve(firebase)
+          } else if (attempts >= maxAttempts) {
+            console.error('🏭 [Firebase] Firebase SDK 로드 타임아웃 - fetch 방식으로 전환')
+            clearInterval(checkFirebase)
+            // Firebase SDK가 없으면 fetch 방식으로 폴백
+            resolve(null)
+          }
+        }, 100)
+      })
+    }
+
+    let motor1Ref: any = null
+    let motor2Ref: any = null
+    let fetchIntervalId: NodeJS.Timeout | null = null
+
+    // Factory 오디오 재생 함수 (useEffect 내부에 정의하여 최신 ref 접근 보장)
+    const playFactoryAudioInternal = async () => {
+      console.log('🏭 [playFactoryAudioInternal] 함수 호출됨')
+      console.log('🏭 [playFactoryAudioInternal] factoryAudioRef.current:', factoryAudioRef.current)
+      console.log('🏭 [playFactoryAudioInternal] isFactoryPlayingRef.current:', isFactoryPlayingRef.current)
+
+      if (!factoryAudioRef.current) {
+        console.error('🏭 [playFactoryAudioInternal] factoryAudioRef.current가 null입니다')
+        return
+      }
+
+      if (isFactoryPlayingRef.current) {
+        console.log('🏭 [playFactoryAudioInternal] 이미 재생 중이므로 스킵')
+        return
+      }
+
+      // 오디오가 로드되었는지 확인
+      if (factoryAudioRef.current.readyState < 2) {
+        console.log('🏭 [playFactoryAudioInternal] 오디오가 아직 로드되지 않음, 로드 대기 중...')
+        factoryAudioRef.current.addEventListener('canplay', async () => {
+          if (!isMounted || isFactoryPlayingRef.current) return
+          await playFactoryAudioInternal()
+        }, { once: true })
+        return
+      }
+
+      isFactoryPlayingRef.current = true
+      console.log('🏭 [playFactoryAudioInternal] 재생 시작 플래그 설정됨')
+
+      try {
+        // 재생 시작 (일시정지 상태에서 재생 시작, currentTime은 리셋하지 않음)
+        if (factoryAudioRef.current.paused) {
+          console.log('🏭 [playFactoryAudioInternal] 오디오 재생 시도 중... (현재 위치:', factoryAudioRef.current.currentTime, ')')
+          await factoryAudioRef.current.play()
+          setIsFactoryPlaying(true)
+          console.log('🏭 [playFactoryAudioInternal] 오디오 재생 성공')
+        } else {
+          console.log('🏭 [playFactoryAudioInternal] 오디오가 이미 재생 중입니다')
+        }
+
+        // 볼륨 초기화
+        factoryAudioRef.current.volume = 0
+        console.log('🏭 [playFactoryAudioInternal] 볼륨 0으로 초기화')
+
+        console.log('🏭 [Factory 오디오] 재생 시작 - 페이드인 3초 → 지속 4초 → 페이드아웃 3초')
+
+        // 페이드 인 (0 → 1, 3초)
+        fadeFactoryVolume(1, 3000)
+        await new Promise(resolve => setTimeout(resolve, 3000))
+        console.log('🏭 [playFactoryAudioInternal] 페이드인 완료')
+
+        // 지속 (1, 4초)
+        await new Promise(resolve => setTimeout(resolve, 4000))
+        console.log('🏭 [playFactoryAudioInternal] 지속 완료')
+
+        // 페이드 아웃 (1 → 0, 3초)
+        fadeFactoryVolume(0, 3000)
+        await new Promise(resolve => setTimeout(resolve, 3000))
+        console.log('🏭 [playFactoryAudioInternal] 페이드아웃 완료')
+
+        // 재생 완료 - 일시정지하지만 currentTime은 리셋하지 않음 (루핑을 위해)
+        if (factoryAudioRef.current && isMounted) {
+          factoryAudioRef.current.pause()
+          // currentTime은 리셋하지 않음 - 루핑되면 자동으로 처음부터 재생됨
+          factoryAudioRef.current.volume = 1
+          setIsFactoryPlaying(false)
+          isFactoryPlayingRef.current = false
+          console.log('🏭 [Factory 오디오] 재생 완료 (일시정지, 루핑 대기)')
+          
+          // 재생 완료 후 motor 상태 확인 - 둘 다 false면 재생하지 않음
+          // (true면 handleMotorStateChange가 자동으로 다시 재생 시작)
+        }
+      } catch (error) {
+        console.error('🏭 [playFactoryAudioInternal] Factory 오디오 재생 실패:', error)
+        if (isMounted) {
+          setIsFactoryPlaying(false)
+          isFactoryPlayingRef.current = false
+        }
+      }
+    }
+
+    waitForFirebase()
+      .then((firebase) => {
+        console.log('🏭 [Firebase] waitForFirebase Promise resolved, firebase:', firebase)
+        if (!isMounted) {
+          console.log('🏭 [Firebase] 컴포넌트가 언마운트되어 초기화 중단')
+          return
+        }
+
+        // Firebase SDK가 없으면 fetch 방식으로 폴백
+        if (!firebase || !firebase.database) {
+          console.log('🏭 [Firebase] Firebase SDK를 사용할 수 없습니다. fetch 방식으로 전환합니다.')
+          fetchIntervalId = setupFetchBasedListener()
+          return
+        }
+
+        console.log('🏭 [Firebase] Firebase database 초기화 시작')
+        console.log('🏭 [Firebase] firebase 객체:', firebase)
+        const database = firebase.database()
+        console.log('🏭 [Firebase] Database 인스턴스:', database)
+        
+        if (!database) {
+          console.error('🏭 [Firebase] Database 인스턴스를 가져올 수 없습니다')
+          fetchIntervalId = setupFetchBasedListener()
+          return
+        }
+        
+        const dbUrl = 'https://yencctv-10945-default-rtdb.asia-southeast1.firebasedatabase.app'
+        console.log('🏭 [Firebase] Database URL:', dbUrl)
+
+        // Motor 상태 변경 핸들러
+        const handleMotorStateChange = (motor1Value: boolean, motor2Value: boolean) => {
+      console.log('🏭 [Motor 실시간 리스너] motor_1:', motor1Value, 'motor_2:', motor2Value)
+      console.log('🏭 [Factory 오디오 상태] isFactoryPlayingRef:', isFactoryPlayingRef.current, 'paused:', factoryAudioRef.current?.paused)
+
+      if (!isMounted || !factoryAudioRef.current) {
+        console.log('🏭 [Motor 실시간 리스너] 컴포넌트가 마운트되지 않았거나 오디오 ref가 없음')
+        return
+      }
+
+      // motor_1 또는 motor_2가 true인 경우
+      if (motor1Value === true || motor2Value === true) {
+        console.log('🏭 [Motor 실시간 리스너] motor_1 또는 motor_2가 true입니다')
+        // 현재 재생 중이 아니면 재생 시작 (true가 감지되면 즉시 재생)
+        if (!isFactoryPlayingRef.current) {
+          console.log('🏭 [Firebase DB] motor_1 또는 motor_2=true → Factory 오디오 재생 시작')
+          playFactoryAudioInternal()
+        } else {
+          console.log('🏭 [Firebase DB] Factory 오디오가 이미 재생 중입니다')
+        }
+      } else {
+        console.log('🏭 [Motor 실시간 리스너] motor_1과 motor_2 모두 false입니다')
+        // 둘 다 false인 경우 - 재생 중이면 중지하지 않고 현재 사이클이 완료될 때까지 대기
+        // (재생이 완료되면 자동으로 중지되므로 여기서는 아무것도 하지 않음)
+        if (isFactoryPlayingRef.current && !factoryAudioRef.current.paused) {
+          console.log('🏭 [Firebase DB] motor_1과 motor_2 모두 false이지만, 현재 재생 중인 사이클이 완료될 때까지 대기합니다')
+          // 재생 중인 사이클은 완료되도록 두고, 완료 후에는 자동으로 중지됨
+        }
+      }
+    }
+
+        // Firebase Realtime Database 실시간 리스너 설정
+        const motorState = { motor1: false, motor2: false }
+
+        try {
+          console.log('🏭 [Firebase] motor_1 리스너 설정 시도...')
+          motor1Ref = database.ref('motor_1')
+          console.log('🏭 [Firebase] motor_1 ref 생성 완료:', motor1Ref)
+          
+          motor1Ref.on('value', (snapshot: any) => {
+            console.log('🏭 [Motor_1 리스너] 이벤트 발생!')
+            if (!isMounted) {
+              console.log('🏭 [Motor_1 리스너] 컴포넌트가 언마운트됨')
+              return
+            }
+            const value = snapshot.val()
+            motorState.motor1 = value === true
+            console.log('🏭 [Motor_1 리스너] 값 변경:', value, '→ boolean:', motorState.motor1)
+            handleMotorStateChange(motorState.motor1, motorState.motor2)
+          }, (error: any) => {
+            console.error('🏭 [Motor_1 리스너] 오류:', error)
+          })
+
+          console.log('🏭 [Firebase] motor_2 리스너 설정 시도...')
+          motor2Ref = database.ref('motor_2')
+          console.log('🏭 [Firebase] motor_2 ref 생성 완료:', motor2Ref)
+          
+          motor2Ref.on('value', (snapshot: any) => {
+            console.log('🏭 [Motor_2 리스너] 이벤트 발생!')
+            if (!isMounted) {
+              console.log('🏭 [Motor_2 리스너] 컴포넌트가 언마운트됨')
+              return
+            }
+            const value = snapshot.val()
+            motorState.motor2 = value === true
+            console.log('🏭 [Motor_2 리스너] 값 변경:', value, '→ boolean:', motorState.motor2)
+            handleMotorStateChange(motorState.motor1, motorState.motor2)
+          }, (error: any) => {
+            console.error('🏭 [Motor_2 리스너] 오류:', error)
+          })
+
+          console.log('🏭 [Firebase] 실시간 리스너 설정 완료!')
+        } catch (error) {
+          console.error('🏭 [Firebase] 실시간 리스너 설정 실패:', error)
+        }
+      })
+      .catch((error) => {
+        console.error('🏭 [Firebase] 초기화 실패:', error)
+        console.log('🏭 [Firebase] fetch 방식으로 전환합니다.')
+        fetchIntervalId = setupFetchBasedListener()
+      })
+
+    // Fetch 기반 리스너 (Firebase SDK가 없을 때 사용)
+    const setupFetchBasedListener = (): NodeJS.Timeout => {
+      console.log('🏭 [Fetch 리스너] Fetch 기반 리스너 설정 시작')
+      let lastMotor1Value: boolean | null = null
+      let lastMotor2Value: boolean | null = null
+
+      const checkMotorState = async () => {
+        if (!isMounted) return
+
+        try {
+          const [motor1Response, motor2Response] = await Promise.all([
+            fetch('https://yencctv-10945-default-rtdb.asia-southeast1.firebasedatabase.app/motor_1.json'),
+            fetch('https://yencctv-10945-default-rtdb.asia-southeast1.firebasedatabase.app/motor_2.json')
+          ])
+
+          const motor1Value = await motor1Response.json() === true
+          const motor2Value = await motor2Response.json() === true
+
+          // 값이 변경되었을 때만 처리
+          if (lastMotor1Value !== motor1Value || lastMotor2Value !== motor2Value) {
+            console.log('🏭 [Fetch 리스너] 값 변경 감지! motor_1:', motor1Value, 'motor_2:', motor2Value)
+            lastMotor1Value = motor1Value
+            lastMotor2Value = motor2Value
+            
+            if (!isMounted || !factoryAudioRef.current) return
+
+            // motor_1 또는 motor_2가 true인 경우
+            if (motor1Value === true || motor2Value === true) {
+              console.log('🏭 [Fetch 리스너] motor_1 또는 motor_2가 true입니다')
+              if (!isFactoryPlayingRef.current) {
+                console.log('🏭 [Fetch 리스너] Factory 오디오 재생 시작')
+                playFactoryAudioInternal()
+              }
+            } else {
+              console.log('🏭 [Fetch 리스너] motor_1과 motor_2 모두 false입니다 (재생 중이면 사이클 완료 대기)')
+            }
+          }
+        } catch (error) {
+          console.error('🏭 [Fetch 리스너] 오류:', error)
+        }
+      }
+
+      // 즉시 한 번 실행
+      checkMotorState()
+      // 200ms마다 확인 (거의 실시간)
+      fetchIntervalId = setInterval(checkMotorState, 200)
+    }
+
+    return () => {
+      console.log('🏭 [Firebase] cleanup 함수 실행')
+      isMounted = false
+      // 리스너 제거
+      if (motor1Ref) {
+        console.log('🏭 [Firebase] motor_1 리스너 제거')
+        motor1Ref.off('value')
+      }
+      if (motor2Ref) {
+        console.log('🏭 [Firebase] motor_2 리스너 제거')
+        motor2Ref.off('value')
+      }
+      if (fetchIntervalId) {
+        console.log('🏭 [Firebase] fetch interval 제거')
+        clearInterval(fetchIntervalId)
+      }
+      if (factoryVolumeIntervalRef.current) {
+        clearInterval(factoryVolumeIntervalRef.current)
+      }
+      if (factoryPlayTimerRef.current) {
+        clearTimeout(factoryPlayTimerRef.current)
+      }
+    }
+  }, [])
+
   // 1분 사이클 진행 중 오디오 보호 - pause되면 자동으로 재생
   useEffect(() => {
     const protectAudio = setInterval(() => {
@@ -317,18 +721,41 @@ export default function DotlinePage() {
     }
   }, [])
 
-  // 첫 번째 오디오만 사용
-  const audio = dotlineAudio[0]
+  // 오디오 데이터 가져오기
+  const audio = dotlineAudio[0] // sound.mp3
+  const factoryAudio = dotlineAudio[1] // factory.mp3
 
   return (
     <Container>
       <PlayPauseButton onClick={togglePlay}>
         {isPlaying ? '⏸️' : '▶️'}
       </PlayPauseButton>
+      <AudioStatusContainer>
+        <AudioStatusItem isPlaying={isPlaying}>
+          <PlayingIndicator isPlaying={isPlaying} />
+          <AudioStatusText>점선면 음악 (sound.mp3)</AudioStatusText>
+        </AudioStatusItem>
+        <AudioStatusItem isPlaying={isFactoryPlaying}>
+          <PlayingIndicator isPlaying={isFactoryPlaying} />
+          <AudioStatusText>팩토리 음악 (factory.mp3)</AudioStatusText>
+        </AudioStatusItem>
+      </AudioStatusContainer>
       <HiddenAudio
         ref={audioRef}
         src={audio.src}
         loop // 무한 반복
+      />
+      <HiddenAudio
+        ref={factoryAudioRef}
+        src={factoryAudio.src}
+        preload="auto"
+        loop // 루핑 활성화
+        onLoadedData={() => {
+          console.log('🏭 [Factory 오디오] 오디오 파일 로드 완료:', factoryAudio.src)
+        }}
+        onError={(e) => {
+          console.error('🏭 [Factory 오디오] 오디오 파일 로드 실패:', e)
+        }}
       />
     </Container>
   )
