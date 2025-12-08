@@ -537,26 +537,26 @@ export default function DotlinePage() {
             motorTrueTimerRef = null
           }
 
-          // 현재 재생 중이 아니면 1초 후 재생 시작
+          // 현재 재생 중이 아니면 2초 후 재생 시작
           if (!isFactoryPlayingRef.current) {
-            console.log('🏭 [Firebase DB] motor_1 또는 motor_2=true → 1초 후 Factory 오디오 재생 시작')
+            console.log('🏭 [Firebase DB] motor_1 또는 motor_2=true → 2초 후 Factory 오디오 재생 시작')
             motorTrueTimerRef = setTimeout(() => {
-              // 1초 후에도 여전히 true이고 재생 중이 아니면 재생 시작
+              // 2초 후에도 여전히 true이고 재생 중이 아니면 재생 시작
               const currentIsTrue = lastMotor1Value === true || lastMotor2Value === true
               if (isMounted && currentIsTrue && !isFactoryPlayingRef.current && factoryAudioRef.current) {
                 const elapsed = Date.now() - (motorTrueStartTime || 0)
-                if (elapsed >= 1000) {
-                  console.log('🏭 [Firebase DB] 1초 이상 유지 확인 완료 (', elapsed, 'ms) → Factory 오디오 재생 시작')
+                if (elapsed >= 2000) {
+                  console.log('🏭 [Firebase DB] 2초 이상 유지 확인 완료 (', elapsed, 'ms) → Factory 오디오 재생 시작')
                   playFactoryAudioInternal()
                 } else {
-                  console.log('🏭 [Firebase DB] 1초 미만 유지 (', elapsed, 'ms) → 재생 취소')
+                  console.log('🏭 [Firebase DB] 2초 미만 유지 (', elapsed, 'ms) → 재생 취소')
                 }
               } else {
-                console.log('🏭 [Firebase DB] 1초 후 false로 변경됨 또는 이미 재생 중 → 재생 취소')
+                console.log('🏭 [Firebase DB] 2초 후 false로 변경됨 또는 이미 재생 중 → 재생 취소')
               }
               motorTrueTimerRef = null
               motorTrueStartTime = null
-            }, 1000)
+            }, 2000)
           } else {
             console.log('🏭 [Firebase DB] Factory 오디오가 이미 재생 중입니다')
             motorTrueStartTime = null
@@ -681,26 +681,26 @@ export default function DotlinePage() {
                   motorTrueTimerRef = null
                 }
 
-                // 현재 재생 중이 아니면 1초 후 재생 시작
+                // 현재 재생 중이 아니면 2초 후 재생 시작
                 if (!isFactoryPlayingRef.current) {
-                  console.log('🏭 [Fetch 리스너] motor_1 또는 motor_2=true → 1초 후 Factory 오디오 재생 시작')
+                  console.log('🏭 [Fetch 리스너] motor_1 또는 motor_2=true → 2초 후 Factory 오디오 재생 시작')
                   motorTrueTimerRef = setTimeout(() => {
-                    // 1초 후에도 여전히 true이고 재생 중이 아니면 재생 시작
+                    // 2초 후에도 여전히 true이고 재생 중이 아니면 재생 시작
                     const currentIsTrue = fetchLastMotor1Value === true || fetchLastMotor2Value === true
                     if (isMounted && currentIsTrue && !isFactoryPlayingRef.current && factoryAudioRef.current) {
                       const elapsed = Date.now() - (motorTrueStartTime || 0)
-                      if (elapsed >= 1000) {
-                        console.log('🏭 [Fetch 리스너] 1초 이상 유지 확인 완료 (', elapsed, 'ms) → Factory 오디오 재생 시작')
+                      if (elapsed >= 2000) {
+                        console.log('🏭 [Fetch 리스너] 2초 이상 유지 확인 완료 (', elapsed, 'ms) → Factory 오디오 재생 시작')
                         playFactoryAudioInternal()
                       } else {
-                        console.log('🏭 [Fetch 리스너] 1초 미만 유지 (', elapsed, 'ms) → 재생 취소')
+                        console.log('🏭 [Fetch 리스너] 2초 미만 유지 (', elapsed, 'ms) → 재생 취소')
                       }
                     } else {
-                      console.log('🏭 [Fetch 리스너] 1초 후 false로 변경됨 또는 이미 재생 중 → 재생 취소')
+                      console.log('🏭 [Fetch 리스너] 2초 후 false로 변경됨 또는 이미 재생 중 → 재생 취소')
                     }
                     motorTrueTimerRef = null
                     motorTrueStartTime = null
-                  }, 1000)
+                  }, 2000)
                 } else {
                   console.log('🏭 [Fetch 리스너] Factory 오디오가 이미 재생 중입니다')
                   motorTrueStartTime = null
