@@ -391,6 +391,10 @@ export default function DotlinePage() {
     let motor1Ref: any = null
     let motor2Ref: any = null
     let fetchIntervalId: NodeJS.Timeout | null = null
+    let motorTrueTimerRef: NodeJS.Timeout | null = null // true 값 유지 확인용 타이머
+    let motorTrueStartTime: number | null = null // true가 시작된 시간
+    let lastMotor1Value: boolean = false
+    let lastMotor2Value: boolean = false
 
     // Factory 오디오 재생 함수 (useEffect 내부에 정의하여 최신 ref 접근 보장)
     const playFactoryAudioInternal = async () => {
@@ -512,18 +516,68 @@ export default function DotlinePage() {
         return
       }
 
+      const isTrue = motor1Value === true || motor2Value === true
+      const wasTrue = lastMotor1Value === true || lastMotor2Value === true
+
+      // 값 업데이트
+      lastMotor1Value = motor1Value
+      lastMotor2Value = motor2Value
+
       // motor_1 또는 motor_2가 true인 경우
-      if (motor1Value === true || motor2Value === true) {
-        console.log('🏭 [Motor 실시간 리스너] motor_1 또는 motor_2가 true입니다')
-        // 현재 재생 중이 아니면 재생 시작 (true가 감지되면 즉시 재생)
-        if (!isFactoryPlayingRef.current) {
-          console.log('🏭 [Firebase DB] motor_1 또는 motor_2=true → Factory 오디오 재생 시작')
-          playFactoryAudioInternal()
+      if (isTrue) {
+        // false에서 true로 변경된 경우 (새로 true가 된 경우)
+        if (!wasTrue) {
+          console.log('🏭 [Motor 실시간 리스너] motor_1 또는 motor_2가 false에서 true로 변경됨')
+          motorTrueStartTime = Date.now()
+          console.log('🏭 [Firebase DB] true 시작 시간 기록:', motorTrueStartTime)
+          
+          // 기존 타이머가 있으면 취소
+          if (motorTrueTimerRef) {
+            clearTimeout(motorTrueTimerRef)
+            motorTrueTimerRef = null
+          }
+
+          // 현재 재생 중이 아니면 1초 후 재생 시작
+          if (!isFactoryPlayingRef.current) {
+            console.log('🏭 [Firebase DB] motor_1 또는 motor_2=true → 1초 후 Factory 오디오 재생 시작')
+            motorTrueTimerRef = setTimeout(() => {
+              // 1초 후에도 여전히 true이고 재생 중이 아니면 재생 시작
+              const currentIsTrue = lastMotor1Value === true || lastMotor2Value === true
+              if (isMounted && currentIsTrue && !isFactoryPlayingRef.current && factoryAudioRef.current) {
+                const elapsed = Date.now() - (motorTrueStartTime || 0)
+                if (elapsed >= 1000) {
+                  console.log('🏭 [Firebase DB] 1초 이상 유지 확인 완료 (', elapsed, 'ms) → Factory 오디오 재생 시작')
+                  playFactoryAudioInternal()
+                } else {
+                  console.log('🏭 [Firebase DB] 1초 미만 유지 (', elapsed, 'ms) → 재생 취소')
+                }
+              } else {
+                console.log('🏭 [Firebase DB] 1초 후 false로 변경됨 또는 이미 재생 중 → 재생 취소')
+              }
+              motorTrueTimerRef = null
+              motorTrueStartTime = null
+            }, 1000)
+          } else {
+            console.log('🏭 [Firebase DB] Factory 오디오가 이미 재생 중입니다')
+            motorTrueStartTime = null
+          }
         } else {
-          console.log('🏭 [Firebase DB] Factory 오디오가 이미 재생 중입니다')
+          // 이미 true였던 경우 (계속 true)
+          console.log('🏭 [Motor 실시간 리스너] motor_1 또는 motor_2가 계속 true입니다')
         }
       } else {
         console.log('🏭 [Motor 실시간 리스너] motor_1과 motor_2 모두 false입니다')
+        
+        // true에서 false로 변경된 경우
+        if (wasTrue) {
+          console.log('🏭 [Firebase DB] true에서 false로 변경됨 → 재생 시작 타이머 취소')
+          if (motorTrueTimerRef) {
+            clearTimeout(motorTrueTimerRef)
+            motorTrueTimerRef = null
+          }
+          motorTrueStartTime = null
+        }
+        
         // 둘 다 false인 경우 - 재생 중이면 중지하지 않고 현재 사이클이 완료될 때까지 대기
         // (재생이 완료되면 자동으로 중지되므로 여기서는 아무것도 하지 않음)
         if (isFactoryPlayingRef.current && !factoryAudioRef.current.paused) {
@@ -587,8 +641,8 @@ export default function DotlinePage() {
     // Fetch 기반 리스너 (Firebase SDK가 없을 때 사용)
     const setupFetchBasedListener = (): NodeJS.Timeout => {
       console.log('🏭 [Fetch 리스너] Fetch 기반 리스너 설정 시작')
-      let lastMotor1Value: boolean | null = null
-      let lastMotor2Value: boolean | null = null
+      let fetchLastMotor1Value: boolean | null = null
+      let fetchLastMotor2Value: boolean | null = null
 
       const checkMotorState = async () => {
         if (!isMounted) return
@@ -602,23 +656,71 @@ export default function DotlinePage() {
           const motor1Value = await motor1Response.json() === true
           const motor2Value = await motor2Response.json() === true
 
+          const isTrue = motor1Value === true || motor2Value === true
+          const wasTrue = fetchLastMotor1Value === true || fetchLastMotor2Value === true
+
           // 값이 변경되었을 때만 처리
-          if (lastMotor1Value !== motor1Value || lastMotor2Value !== motor2Value) {
+          if (fetchLastMotor1Value !== motor1Value || fetchLastMotor2Value !== motor2Value) {
             console.log('🏭 [Fetch 리스너] 값 변경 감지! motor_1:', motor1Value, 'motor_2:', motor2Value)
-            lastMotor1Value = motor1Value
-            lastMotor2Value = motor2Value
+            fetchLastMotor1Value = motor1Value
+            fetchLastMotor2Value = motor2Value
             
             if (!isMounted || !factoryAudioRef.current) return
 
             // motor_1 또는 motor_2가 true인 경우
-            if (motor1Value === true || motor2Value === true) {
-              console.log('🏭 [Fetch 리스너] motor_1 또는 motor_2가 true입니다')
-              if (!isFactoryPlayingRef.current) {
-                console.log('🏭 [Fetch 리스너] Factory 오디오 재생 시작')
-                playFactoryAudioInternal()
+            if (isTrue) {
+              // false에서 true로 변경된 경우 (새로 true가 된 경우)
+              if (!wasTrue) {
+                console.log('🏭 [Fetch 리스너] motor_1 또는 motor_2가 false에서 true로 변경됨')
+                motorTrueStartTime = Date.now()
+                console.log('🏭 [Fetch 리스너] true 시작 시간 기록:', motorTrueStartTime)
+                
+                // 기존 타이머가 있으면 취소
+                if (motorTrueTimerRef) {
+                  clearTimeout(motorTrueTimerRef)
+                  motorTrueTimerRef = null
+                }
+
+                // 현재 재생 중이 아니면 1초 후 재생 시작
+                if (!isFactoryPlayingRef.current) {
+                  console.log('🏭 [Fetch 리스너] motor_1 또는 motor_2=true → 1초 후 Factory 오디오 재생 시작')
+                  motorTrueTimerRef = setTimeout(() => {
+                    // 1초 후에도 여전히 true이고 재생 중이 아니면 재생 시작
+                    const currentIsTrue = fetchLastMotor1Value === true || fetchLastMotor2Value === true
+                    if (isMounted && currentIsTrue && !isFactoryPlayingRef.current && factoryAudioRef.current) {
+                      const elapsed = Date.now() - (motorTrueStartTime || 0)
+                      if (elapsed >= 1000) {
+                        console.log('🏭 [Fetch 리스너] 1초 이상 유지 확인 완료 (', elapsed, 'ms) → Factory 오디오 재생 시작')
+                        playFactoryAudioInternal()
+                      } else {
+                        console.log('🏭 [Fetch 리스너] 1초 미만 유지 (', elapsed, 'ms) → 재생 취소')
+                      }
+                    } else {
+                      console.log('🏭 [Fetch 리스너] 1초 후 false로 변경됨 또는 이미 재생 중 → 재생 취소')
+                    }
+                    motorTrueTimerRef = null
+                    motorTrueStartTime = null
+                  }, 1000)
+                } else {
+                  console.log('🏭 [Fetch 리스너] Factory 오디오가 이미 재생 중입니다')
+                  motorTrueStartTime = null
+                }
+              } else {
+                // 이미 true였던 경우 (계속 true)
+                console.log('🏭 [Fetch 리스너] motor_1 또는 motor_2가 계속 true입니다')
               }
             } else {
               console.log('🏭 [Fetch 리스너] motor_1과 motor_2 모두 false입니다 (재생 중이면 사이클 완료 대기)')
+              
+              // true에서 false로 변경된 경우
+              if (wasTrue) {
+                console.log('🏭 [Fetch 리스너] true에서 false로 변경됨 → 재생 시작 타이머 취소')
+                if (motorTrueTimerRef) {
+                  clearTimeout(motorTrueTimerRef)
+                  motorTrueTimerRef = null
+                }
+                motorTrueStartTime = null
+              }
             }
           }
         } catch (error) {
@@ -648,6 +750,10 @@ export default function DotlinePage() {
       if (fetchIntervalId) {
         console.log('🏭 [Firebase] fetch interval 제거')
         clearInterval(fetchIntervalId)
+      }
+      if (motorTrueTimerRef) {
+        console.log('🏭 [Firebase] motor true timer 제거')
+        clearTimeout(motorTrueTimerRef)
       }
       if (factoryVolumeIntervalRef.current) {
         clearInterval(factoryVolumeIntervalRef.current)
