@@ -116,6 +116,7 @@ export default function DotlinePage() {
   const isInOneMinuteCycleRef = useRef(false)
   const factoryPlayTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isFactoryPlayingRef = useRef(false)
+  const factoryPausedTimeRef = useRef<number>(0) // 멈춘 위치를 기억하는 ref
 
   // ===== 수동 재생/일시정지 토글 =====
   const togglePlay = async () => {
@@ -395,6 +396,23 @@ export default function DotlinePage() {
     let motorTrueStartTime: number | null = null // true가 시작된 시간
     let lastMotor1Value: boolean = false
     let lastMotor2Value: boolean = false
+    
+    // Motor 상태를 확인하는 함수
+    const checkMotorState = async (): Promise<boolean> => {
+      try {
+        const [motor1Response, motor2Response] = await Promise.all([
+          fetch('https://yencctv-10945-default-rtdb.asia-southeast1.firebasedatabase.app/motor_1.json'),
+          fetch('https://yencctv-10945-default-rtdb.asia-southeast1.firebasedatabase.app/motor_2.json')
+        ])
+        const motor1Value = await motor1Response.json() === true
+        const motor2Value = await motor2Response.json() === true
+        return motor1Value === true || motor2Value === true
+      } catch (error) {
+        console.error('🏭 [checkMotorState] 오류:', error)
+        // 오류 발생 시 마지막으로 알려진 값 사용
+        return lastMotor1Value === true || lastMotor2Value === true
+      }
+    }
 
     // Factory 오디오 재생 함수 (useEffect 내부에 정의하여 최신 ref 접근 보장)
     const playFactoryAudioInternal = async () => {
@@ -426,7 +444,13 @@ export default function DotlinePage() {
       console.log('🏭 [playFactoryAudioInternal] 재생 시작 플래그 설정됨')
 
       try {
-        // 재생 시작 (일시정지 상태에서 재생 시작, currentTime은 리셋하지 않음)
+        // 멈춘 위치가 저장되어 있으면 그 위치부터 재생 시작
+        if (factoryPausedTimeRef.current > 0) {
+          factoryAudioRef.current.currentTime = factoryPausedTimeRef.current
+          console.log('🏭 [playFactoryAudioInternal] 저장된 위치부터 재생:', factoryPausedTimeRef.current, '초')
+        }
+
+        // 재생 시작
         if (factoryAudioRef.current.paused) {
           console.log('🏭 [playFactoryAudioInternal] 오디오 재생 시도 중... (현재 위치:', factoryAudioRef.current.currentTime, ')')
           await factoryAudioRef.current.play()
@@ -456,17 +480,53 @@ export default function DotlinePage() {
         await new Promise(resolve => setTimeout(resolve, 3000))
         console.log('🏭 [playFactoryAudioInternal] 페이드아웃 완료')
 
-        // 재생 완료 - 일시정지하지만 currentTime은 리셋하지 않음 (루핑을 위해)
+        // 재생 완료 - 멈춘 위치를 저장하고 일시정지
         if (factoryAudioRef.current && isMounted) {
+          // 현재 재생 위치를 저장 (루핑을 위해)
+          factoryPausedTimeRef.current = factoryAudioRef.current.currentTime
+          console.log('🏭 [Factory 오디오] 멈춘 위치 저장:', factoryPausedTimeRef.current, '초')
+          
           factoryAudioRef.current.pause()
-          // currentTime은 리셋하지 않음 - 루핑되면 자동으로 처음부터 재생됨
           factoryAudioRef.current.volume = 1
           setIsFactoryPlaying(false)
+          // 플래그를 먼저 false로 설정하여 다음 사이클 시작 가능하도록 함
           isFactoryPlayingRef.current = false
           console.log('🏭 [Factory 오디오] 재생 완료 (일시정지, 루핑 대기)')
           
-          // 재생 완료 후 motor 상태 확인 - 둘 다 false면 재생하지 않음
-          // (true면 handleMotorStateChange가 자동으로 다시 재생 시작)
+          // 재생 완료 후 motor 상태 확인 - 계속 true면 자동으로 다음 사이클 재생
+          // DB를 직접 확인하여 최신 상태 확인
+          const isMotorTrue = await checkMotorState()
+          console.log('🏭 [Factory 오디오] 재생 완료 후 motor 상태 확인:', isMotorTrue)
+          
+          if (isMotorTrue) {
+            console.log('🏭 [Factory 오디오] motor가 계속 true → 다음 사이클 자동 재생 시작')
+            // 플래그가 false로 설정되어 있고, 컴포넌트가 마운트되어 있으면 바로 다음 사이클 시작
+            // 약간의 딜레이를 두어 자연스러운 연속 재생
+            await new Promise(resolve => setTimeout(resolve, 500))
+            
+            // 다시 한 번 상태 확인
+            if (isMounted && !isFactoryPlayingRef.current && factoryAudioRef.current) {
+              const currentIsMotorTrue = await checkMotorState()
+              console.log('🏭 [Factory 오디오] motor 상태 재확인:', currentIsMotorTrue)
+              console.log('🏭 [Factory 오디오] 다음 사이클 시작 조건:', {
+                isMounted,
+                isFactoryPlayingRef: isFactoryPlayingRef.current,
+                hasFactoryAudioRef: !!factoryAudioRef.current,
+                currentIsMotorTrue
+              })
+              
+              if (currentIsMotorTrue && isMounted && !isFactoryPlayingRef.current && factoryAudioRef.current) {
+                console.log('🏭 [Factory 오디오] 다음 사이클 시작!')
+                playFactoryAudioInternal()
+              } else {
+                console.log('🏭 [Factory 오디오] 다음 사이클 시작 조건 불만족')
+              }
+            } else {
+              console.log('🏭 [Factory 오디오] 다음 사이클 시작 조건 불만족 (초기 체크)')
+            }
+          } else {
+            console.log('🏭 [Factory 오디오] motor가 false → 재생 중지')
+          }
         }
       } catch (error) {
         console.error('🏭 [playFactoryAudioInternal] Factory 오디오 재생 실패:', error)
@@ -761,6 +821,32 @@ export default function DotlinePage() {
       if (factoryPlayTimerRef.current) {
         clearTimeout(factoryPlayTimerRef.current)
       }
+    }
+  }, [])
+
+  // Factory 오디오 루핑 감지 및 멈춘 위치 초기화
+  useEffect(() => {
+    const factoryAudio = factoryAudioRef.current
+    if (!factoryAudio) return
+
+    let lastCurrentTime = factoryAudio.currentTime
+
+    const handleTimeUpdate = () => {
+      if (!factoryAudio) return
+
+      // 오디오가 루핑되면 (currentTime이 이전보다 작아지면) 멈춘 위치 초기화
+      if (factoryAudio.currentTime < lastCurrentTime - 1) {
+        // 1초 이상 뒤로 돌아갔으면 루핑된 것으로 간주
+        factoryPausedTimeRef.current = 0
+        console.log('🏭 [Factory 오디오] 루핑 감지 - 멈춘 위치 초기화')
+      }
+      lastCurrentTime = factoryAudio.currentTime
+    }
+
+    factoryAudio.addEventListener('timeupdate', handleTimeUpdate)
+
+    return () => {
+      factoryAudio.removeEventListener('timeupdate', handleTimeUpdate)
     }
   }, [])
 
